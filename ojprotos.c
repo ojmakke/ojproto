@@ -119,14 +119,16 @@ int add_struct(char* to_add)
     }
 }
 
-int prepare_file(char* filename)
+int prepare_file(char* filename, char* to_include)
 {
   FILE* fh;
   fh = fopen(filename, "w");
   fprintf(fh, "#include <stdio.h>\n");
+  fprintf(fh, "#include <stdint.h>\n");
   fprintf(fh, "#include <arpa/inet.h>\n");
   fprintf(fh, "#include <string.h>\n");
-  fprintf(fh, "\n\n\n");
+  fprintf(fh, "#include \"%s\"\n", to_include);
+  fprintf(fh, "\n\n");
   fprintf(fh, "short ojp_ntohs(short val){\n");
   fprintf(fh, "\treturn ntohs(val);\n");
   fprintf(fh, "}\n");
@@ -142,7 +144,7 @@ int prepare_file(char* filename)
   fprintf(fh, "long ojp_htonl(long val){\n");
   fprintf(fh, "\treturn htonl(val);\n");
   fprintf(fh, "}\n");
-  fprintf(fh, "\n\n\n");
+  fprintf(fh, "\n");
   
   fclose(fh);
   return 0;
@@ -157,7 +159,7 @@ int print_last_struct(char* filename)
   fprintf(fh, "\n\n");
   
   lastii = get_last_struct();
-  fprintf(fh, "%s_ser(struct %s const *ins, char* buffer){\n",
+  fprintf(fh, "size_t %s_ser(struct %s *ins, char* buffer){\n",
 	  struct_names[lastii], struct_names[lastii]);
   fprintf(fh, "\tint offset = 0;\n");
   fprintf(fh, "\tuint32_t *ptr32;\n");
@@ -172,38 +174,62 @@ int print_last_struct(char* filename)
     {
       int jj;
       jj = 0;
-     
       if(members[member_ii].isStruct == OJPFALSE)
 	{   
 	  if(   members[member_ii].eMemberType == MT_UINT32
 	     || members[member_ii].eMemberType == MT_INT32)
 	    {
+	      if(members[member_ii].isArray == OJPTRUE)
+		{
+		  fprintf(fh, "\tptr32 = &(ins->%s[0]);\n", members[member_ii].name);
+		}
+	      else
+		{
+		  fprintf(fh, "\tptr32 = &(ins->%s);\n", members[member_ii].name);
+		}
+
 	      while(jj <= members[member_ii].arraySize)
 		{
 		  fprintf(fh, "\tval32 = (uint32_t) ojp_ntohl(ptr32[%d]);\n", jj);
 		  fprintf(fh, "\tmemcpy(&buffer[offset], &val32, sizeof(val32));\n");
-		  fprintf(fh, "\toffset += sizeof(val)\n\n");
+		  fprintf(fh, "\toffset += sizeof(val32);\n\n");
 		  ++jj;
 		}
 	    }
 	  else if(    members[member_ii].eMemberType == MT_UINT16
 		   || members[member_ii].eMemberType == MT_INT16 )
 	    {
+	      if(members[member_ii].isArray == OJPTRUE)
+		{
+		  fprintf(fh, "\tptr16 = &(ins->%s[0]);\n", members[member_ii].name);
+		}
+	      else
+		{
+		  fprintf(fh, "\tptr16 = &(ins->%s);\n", members[member_ii].name);
+		}
 	      while(jj <= members[member_ii].arraySize)
 		{
 		  fprintf(fh, "\tval16 = (uint16_t) ojp_ntohs(ptr16[%d]);\n", jj);
-		  fprintf(fh, "\tmemcpy(&buffer[offset], &val16, sizeof(val));\n");
-		  fprintf(fh, "\toffset += sizeof(val16)\n\n");
+		  fprintf(fh, "\tmemcpy(&buffer[offset], &val16, sizeof(val16));\n");
+		  fprintf(fh, "\toffset += sizeof(val16);\n\n");
 		  ++jj;
 		}
 	    }
 	  else
 	    {
+	      if(members[member_ii].isArray == OJPTRUE)
+		{
+		  fprintf(fh, "\tptr8 = &(ins->%s[0]);\n", members[member_ii].name);
+		}
+	      else
+		{
+		  fprintf(fh, "\tptr8 = &(ins->%s);\n", members[member_ii].name);
+		}
 	      while(jj <= members[member_ii].arraySize)
 		{
 		  fprintf(fh, "\tval8 = ptr8[%d];\n", jj);
 		  fprintf(fh, "\tmemcpy(&buffer[offset], &val8, sizeof(val8));\n");
-		  fprintf(fh, "\toffset += sizeof(val8)\n\n");
+		  fprintf(fh, "\toffset += sizeof(val8);\n\n");
 		  ++jj;
 		}
 	    }
@@ -211,15 +237,24 @@ int print_last_struct(char* filename)
       else
 	{
 	  fprintf(fh, "\tstruct %s *%s_ptr;\n", members[member_ii].structName, members[member_ii].name);
-	  fprintf(fh, "\t%s_ptr = &(ins->%s[%d]);\n"
-		 , members[member_ii].name
-		 , members[member_ii].name
-		 , jj);
+	  if(members[member_ii].isArray == OJPTRUE)
+	    {
+	      fprintf(fh, "\t%s_ptr = &(ins->%s[0]);\n"
+		      , members[member_ii].name
+		      , members[member_ii].name);
+	    }
+	  else
+	    {
+	      fprintf(fh, "\t%s_ptr = &(ins->%s);\n"
+		      , members[member_ii].name
+		      , members[member_ii].name);
+	    }
+	  
 	  while(jj <= members[member_ii].arraySize)
 	    {
 	      
-	      fprintf(fh, "\toffset += %s_ser(&ins->%s, &buffer[offset]);\n\n",
-		  members[member_ii].structName, members[member_ii].name);
+	      fprintf(fh, "\toffset += %s_ser(&%s_ptr[%d], &buffer[offset]);\n\n",
+		      members[member_ii].structName, members[member_ii].name, jj);
 	      ++jj;
 	    }
 
@@ -228,6 +263,38 @@ int print_last_struct(char* filename)
     }
   fprintf(fh, "\treturn offset;\n");
   fprintf(fh, "}\n\n");
+
+  /* now print the function which returns the size required from the buffer */
+  fprintf(fh, "size_t %s_size(){\n", struct_names[lastii]);
+  fprintf(fh, "\tsize_t offset;\n");
+  fprintf(fh, "\tstruct %s dummy;\n", struct_names[lastii]);
+  fprintf(fh, "\toffset = 0;\n\n");
+  member_ii = 0;
+  while(members[member_ii].name[0] != 0 && member_ii < OJPMAX)
+    {
+      int jj;
+      jj = 0;
+      if(members[member_ii].isStruct == OJPFALSE)
+	{
+	  fprintf(fh, "\toffset += sizeof(dummy.%s);\n", members[member_ii].name);
+	}
+      else
+	{
+	  if(members[member_ii].isArray == OJPFALSE)
+	    {
+	       fprintf(fh, "\toffset += %s_size();\n", members[member_ii].structName);
+	    }
+	  else
+	    {
+	      fprintf(fh, "\toffset += %s_size()*%d;\n"
+		      , members[member_ii].structName
+		      , members[member_ii].arraySize);
+	    }
+	}
+      member_ii++;
+    }
+  fprintf(fh, "\treturn offset;\n");
+  fprintf(fh, "}");
   fclose(fh);
   return 0;
 }

@@ -39,7 +39,7 @@ void init_members();
 void init_all();
 int add_struct(char* to_add);
 int add_member(struct SMemberTypes *member);
-int prepare_file(char* filename);
+int prepare_file(char* filename, char* to_include);
 int print_last_struct(char* filename);
 int can_add_primitive_member(char* member);
 int can_add_struct_member(char* member);

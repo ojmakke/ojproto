@@ -6,19 +6,27 @@ struct Struct1
   uint32_t x1;
   uint16_t x2;
   uint8_t x3;
-    int32_t x4;
-    
+  int32_t x4;
   int16_t x5;
-  int8_t x6;
-  
+  int8_t x6; 
   char x7;
-  
 };
 
 struct Struct2
 {
+  uint32_t x11[2];
+  uint16_t x21[2];
+  uint8_t x31[2];
+  int32_t x41[2];
+  int16_t x51[2];
+  int8_t x61[2]; 
+  char x71[2];
+};
+
+struct Struct3
+{
   uint32_t a[2];
   struct Struct1 b;
-  struct Struct1 b;
+  struct Struct2 c[5];
 };
 // OJPROTOEND

@@ -12,7 +12,8 @@ char _structName[OJPLEN];
 char _structType[OJPLEN];
 char _varName[OJPLEN];
 char _varType[OJPLEN];
-char *output_file = "ojpout.c";
+char *output_file;
+char *to_include;
 
 %}
 
@@ -48,7 +49,7 @@ version: VERSION UINT32
 	 {
 	    ojproto_version = (uint32_t) $2;
 	    printf("Found version %d\n", $2);
-	    prepare_file(output_file);
+	    prepare_file(output_file, to_include);
 	 }
 
 structs: struct
@@ -71,7 +72,7 @@ member: TYPE STRING array SEMI
 		struct SMemberTypes SType;
 		strcpy(SType.name, $2);
 		SType.isStruct = OJPFALSE;
-		SType.isArray = 1;
+		SType.isArray = OJPTRUE;
 		SType.arraySize = $3;
 		SType.eMemberType = type_to_str($1);
 		memset(&SType.structName, 0, OJPLEN);
@@ -89,7 +90,7 @@ member: TYPE STRING array SEMI
 		struct SMemberTypes SType;
 		strcpy(SType.name, $2);
 		SType.isStruct = OJPFALSE;
-		SType.isArray = 0;
+		SType.isArray = OJPFALSE;
 		SType.arraySize = 0;
 		SType.eMemberType = type_to_str($1);
 		memset(&SType.structName, 0, OJPLEN);
@@ -108,9 +109,10 @@ member: TYPE STRING array SEMI
 	    {
 	    printf("Adding struct %s %s\n", $1, $2);
 		struct SMemberTypes SType;
-		strcpy(SType.name, $1);
-		SType.isStruct = 1;
-		SType.isArray = 1;
+		strcpy(SType.name, $2);
+		strcpy(SType.structName, $1);
+		SType.isStruct = OJPTRUE;
+		SType.isArray = OJPTRUE;
 		SType.arraySize = $3;
 		SType.eMemberType = type_to_str($1);
 		add_member(&SType);
@@ -128,8 +130,8 @@ member: TYPE STRING array SEMI
 		struct SMemberTypes SType;
 		strcpy(SType.structName, $1);
 		strcpy(SType.name, $2);
-		SType.isStruct = 1;
-		SType.isArray = 0;
+		SType.isStruct = OJPTRUE;
+		SType.isArray = OJPFALSE;
 		SType.arraySize = 0;
 		SType.eMemberType = type_to_str($1);
 		add_member(&SType);
@@ -158,8 +160,14 @@ extern FILE* yyin;
 
 main(int argc, char *argv[])
 {
+  if( argc != 3)
+  {
+    printf("Error: Usage: ser proto outputfile\n");
+    return 0;
+  }
   init_all();
-  
+  output_file = argv[2];
+  to_include = argv[1];
   yyin = fopen(argv[1], "r");
   printf("yyin is %d and argv1 is %s\n", yyin, argv[1]);
   yyparse();
