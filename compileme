@@ -1,0 +1,3 @@
+bison -d -v grammer.y
+flex scanner.l
+gcc grammer.tab.c lex.yy.c ojprotos.c -o ser
