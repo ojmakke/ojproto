@@ -294,7 +294,123 @@ int print_last_struct(char* filename)
       member_ii++;
     }
   fprintf(fh, "\treturn offset;\n");
-  fprintf(fh, "}");
+  fprintf(fh, "}\n\n");
+
+  /* Now print the function for deserialize. It returns the offset of unused buffer. Tis can be otuside bound */
+  /*****
+   *****
+   ****
+   */
+    fprintf(fh, "size_t %s_des(struct %s *ins, char* buffer){\n",
+	  struct_names[lastii], struct_names[lastii]);
+  fprintf(fh, "\tint offset = 0;\n");
+  fprintf(fh, "\tuint32_t *ptr32;\n");
+  fprintf(fh, "\tuint16_t *ptr16;\n");
+  fprintf(fh, "\tuint8_t *ptr8;\n");
+  fprintf(fh, "\tuint32_t val32;\n");
+  fprintf(fh, "\tuint16_t val16;\n");
+  fprintf(fh, "\tuint8_t val8;\n\n");
+  fprintf(fh, "\tmemset(ins, 0, sizeof(*ins));\n");
+  
+  member_ii = 0;
+  while(members[member_ii].name[0] != 0 && member_ii < OJPMAX)
+    {
+      int jj;
+      jj = 0;
+      if(members[member_ii].isStruct == OJPFALSE)
+	{   
+	  if(   members[member_ii].eMemberType == MT_UINT32
+	     || members[member_ii].eMemberType == MT_INT32)
+	    {
+	      while(jj <= members[member_ii].arraySize)
+		{
+		  fprintf(fh, "\tptr32 = &buffer[offset];\n");
+		  fprintf(fh, "\tval32 = ojp_htonl(*ptr32);\n");
+		  if(members[member_ii].isArray == OJPTRUE)
+		    {
+		      fprintf(fh, "\tptr32 = &(ins->%s[offset]);\n", members[member_ii].name);
+		    }
+		  else
+		    {
+		      fprintf(fh, "\tptr32 = &(ins->%s);\n", members[member_ii].name);
+		    }
+		  /* ptr32 now points to either the variable, or the offset to where to copy data */
+		  fprintf(fh, "\tmemcpy(ptr32, &val32, sizeof(val32));\n");
+		  fprintf(fh, "\toffset += sizeof(val32);\n\n");
+		  ++jj;
+		}
+	    }
+	  else if(    members[member_ii].eMemberType == MT_UINT16
+		   || members[member_ii].eMemberType == MT_INT16 )
+	    {
+	      while(jj <= members[member_ii].arraySize)
+		{
+		  fprintf(fh, "\tptr16 = &buffer[offset];\n");
+		  fprintf(fh, "\tval16 = ojp_htons(*ptr16);\n");
+		  if(members[member_ii].isArray == OJPTRUE)
+		    {
+		      fprintf(fh, "\tptr16 = &(ins->%s[offset]);\n", members[member_ii].name);
+		    }
+		  else
+		    {
+		      fprintf(fh, "\tptr16 = &(ins->%s);\n", members[member_ii].name);
+		    }
+		  /* ptr32 now points to either the variable, or the offset to where to copy data */
+		  fprintf(fh, "\tmemcpy(ptr16, &val16, sizeof(val16));\n");
+		  fprintf(fh, "\toffset += sizeof(val16);\n\n");
+		  ++jj;
+		}
+	    }
+	  else
+	    {
+	      while(jj <= members[member_ii].arraySize)
+		{
+		  fprintf(fh, "\tptr8 = &buffer[offset];\n");
+		  fprintf(fh, "\tval8 = *ptr8;\n");
+		  if(members[member_ii].isArray == OJPTRUE)
+		    {
+		      fprintf(fh, "\tptr8 = &(ins->%s[offset]);\n", members[member_ii].name);
+		    }
+		  else
+		    {
+		      fprintf(fh, "\tptr8 = &(ins->%s);\n", members[member_ii].name);
+		    }
+		  /* ptr32 now points to either the variable, or the offset to where to copy data */
+		  fprintf(fh, "\tmemcpy(ptr8, &val8, sizeof(val8));\n");
+		  fprintf(fh, "\toffset += sizeof(val8);\n\n");
+		  ++jj;
+		}
+	    }
+	}
+      else
+	{
+	  fprintf(fh, "\tstruct %s *%s_ptr;\n", members[member_ii].structName, members[member_ii].name);
+	  if(members[member_ii].isArray == OJPTRUE)
+	    {
+	      fprintf(fh, "\t%s_ptr = &(ins->%s[0]);\n"
+		      , members[member_ii].name
+		      , members[member_ii].name);
+	    }
+	  else
+	    {
+	      fprintf(fh, "\t%s_ptr = &(ins->%s);\n"
+		      , members[member_ii].name
+		      , members[member_ii].name);
+	    }
+	  
+	  while(jj <= members[member_ii].arraySize)
+	    {
+	      
+	      fprintf(fh, "\toffset += %s_des(&%s_ptr[%d], &buffer[offset]);\n\n",
+		      members[member_ii].structName, members[member_ii].name, jj);
+	      ++jj;
+	    }
+
+	}
+      member_ii++;
+    }
+  fprintf(fh, "\treturn offset;\n");
+  fprintf(fh, "}\n\n");
   fclose(fh);
   return 0;
 }
