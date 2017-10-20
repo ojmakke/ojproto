@@ -48,7 +48,6 @@ prog:	version PROTOBEGIN structs PROTOEND
 version: VERSION UINT32
 	 {
 	    ojproto_version = (uint32_t) $2;
-	    printf("Found version %d\n", $2);
 	    prepare_file(output_file, to_include);
 	 }
 
@@ -107,7 +106,6 @@ member: TYPE STRING array SEMI
 	    strcpy(_structName, $2);
 	    if(can_add_struct_member($1) == OJPTRUE && can_add_primitive_member($2) == OJPTRUE)
 	    {
-	    printf("Adding struct %s %s\n", $1, $2);
 		struct SMemberTypes SType;
 		strcpy(SType.name, $2);
 		strcpy(SType.structName, $1);
@@ -144,7 +142,6 @@ member: TYPE STRING array SEMI
 	
 structname: STRUCT STRING
     {
-	printf("Found struct: %s\n", $2);
 	$$ = $2; 
     }
 	
@@ -169,7 +166,6 @@ main(int argc, char *argv[])
   output_file = argv[2];
   to_include = argv[1];
   yyin = fopen(argv[1], "r");
-  printf("yyin is %d and argv1 is %s\n", yyin, argv[1]);
   yyparse();
   fclose(yyin); 
   

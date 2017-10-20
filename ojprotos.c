@@ -50,11 +50,11 @@ int struct_exist(char* to_find)
     {
       if(struct_names[ii][0] == 0)
 	{
-	  return OJPTRUE;
+	  return OJPFALSE;
 	}
       if(strcmp(struct_names[ii], to_find) == 0)
 	{
-	  return OJPFALSE;
+	  return OJPTRUE;
 	}
     }
   fprintf(stderr, "cannot add more structs.\n");
@@ -68,11 +68,11 @@ int member_exist(char* to_find)
     {
       if(members[ii].name[0] == 0)
 	{
-	  return OJPTRUE;
+	  return OJPFALSE;
 	}
       if(strcmp(members[ii].name, to_find) == 0)
 	{
-	  return OJPFALSE;
+	  return OJPTRUE;
 	}
     }
   fprintf(stderr, "cannot add more members.\n");
@@ -83,7 +83,7 @@ int member_exist(char* to_find)
 int get_last_struct()
 {
   int ii;
-  for(ii = 1; ii < OJPMAX; ++ii)
+  for(ii = 0; ii < OJPMAX; ++ii)
     {
       if(struct_names[ii][0] == 0)
 	{
@@ -108,13 +108,15 @@ int get_last_member()
 int add_struct(char* to_add)
 {
   int ii;
-  if((ii = get_last_struct() ) != OJPERR && ii+1 < OJPMAX)
+  ii = get_last_struct();
+  if(ii+1 < OJPMAX && ii+1 >= 0)
     {
       strcpy(struct_names[ii+1], to_add);
       return OJPOK;
     }
   else
     {
+      printf("add struct error. ii is %d\n", ii+1);
       return OJPERR;
     }
 }
@@ -328,7 +330,7 @@ int print_last_struct(char* filename)
 		  fprintf(fh, "\tval32 = ojp_htonl(*ptr32);\n");
 		  if(members[member_ii].isArray == OJPTRUE)
 		    {
-		      fprintf(fh, "\tptr32 = &(ins->%s[offset]);\n", members[member_ii].name);
+		      fprintf(fh, "\tptr32 = &(ins->%s[%d]);\n", members[member_ii].name, jj);
 		    }
 		  else
 		    {
@@ -349,7 +351,7 @@ int print_last_struct(char* filename)
 		  fprintf(fh, "\tval16 = ojp_htons(*ptr16);\n");
 		  if(members[member_ii].isArray == OJPTRUE)
 		    {
-		      fprintf(fh, "\tptr16 = &(ins->%s[offset]);\n", members[member_ii].name);
+		      fprintf(fh, "\tptr16 = &(ins->%s[%d]);\n", members[member_ii].name, jj);
 		    }
 		  else
 		    {
@@ -369,7 +371,7 @@ int print_last_struct(char* filename)
 		  fprintf(fh, "\tval8 = *ptr8;\n");
 		  if(members[member_ii].isArray == OJPTRUE)
 		    {
-		      fprintf(fh, "\tptr8 = &(ins->%s[offset]);\n", members[member_ii].name);
+		      fprintf(fh, "\tptr8 = &(ins->%s[%d]);\n", members[member_ii].name, jj);
 		    }
 		  else
 		    {
@@ -427,26 +429,27 @@ int can_add_primitive_member(char* member)
 {
   if(member_exist(member) == OJPTRUE)
     {
-      return OJPTRUE;
+      printf("member %s exists\n", member);
+      return OJPFALSE;
     }
-  return OJPFALSE;
+  return OJPTRUE;
 }
 
 int can_add_struct_member(char* member)
 {
-  printf("Checking member %s\n", member);
   if(struct_exist(member) == OJPTRUE)
     {
       return OJPTRUE;
     }
+  printf("member's type  %s does not exist\n", member);
   return OJPFALSE;
 }
 
 int can_add_struct(char* structname)
 {
-  printf("Checking struct %s\n", structname);
   if(struct_exist(structname) != OJPFALSE)
     {
+      printf("Struct type %s already exists\n", structname);
       return OJPFALSE;
     }
   return OJPTRUE;
