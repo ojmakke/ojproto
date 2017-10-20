@@ -15,7 +15,7 @@ struct SHeader
 {
   uint16_t version;
   uint32_t msg_type;
-}
+};
 ````
 
 What is a good way to send this?
