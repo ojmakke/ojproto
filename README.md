@@ -30,12 +30,19 @@ Also, having to install 10's of Megabytes if not hundreds to transmit few hundre
 
 This is not to claim that this tool is better. It is not, whatever that better means. It is just much easier to integrate and use. Here is how.
 
+## How to compile
+
 Run the ````compileme```` script. It will create a binary called ````ser````
 
 Then, execute:
 
 ````ser struct_file output.c````
 
+For example, a sample.ojp is included. The file name *sample.ojp" is normally a file called something like "messages.h", and is included in other C files.
+
+````ser sample.ojp sample.c````
+
+## Some Rules For struct_file
 There are few simple rules.
 In the ````struct_file```` , It must begin with ````// VERSION x```` where x is an integer. This is in case changes are made in the future.
 
@@ -45,7 +52,8 @@ This is to allow you to have more structs *after* the ````// OJPROTOEND```` . Yo
 
 See the ````sample.ojp```` for an example.
 
-The ````output.c```` file will have few files. Say ````struct MyStruct```` is the struct name. 
+## What is Generated
+The ````output.c```` file will have 3 functions per defined structure. Say ````struct MyStruct```` is the struct name in sample.ojp.
 
 Then there will be:
 ````size_t MyStruct_ser(struct MyStruct *ins, char* buffer)````
@@ -63,7 +71,6 @@ Then there will be:
 ````size_t MyStruct_size()````
 
 1. This returns the size of the structure. This can be used to ensure that buffer is of correct size, before passing it to the serializer/deserializer.
-
  
  So, given a series of bytes, we can call serializer or deserializer multiple types to serialize, deserialize multiple structures. 
  
