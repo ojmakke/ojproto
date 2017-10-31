@@ -131,20 +131,28 @@ int prepare_file(char* filename, char* to_include)
   fprintf(fh, "#include <string.h>\n");
   fprintf(fh, "#include \"%s\"\n", to_include);
   fprintf(fh, "\n\n");
-  fprintf(fh, "short ojp_ntohs(short val){\n");
-  fprintf(fh, "\treturn ntohs(val);\n");
+  fprintf(fh, "uint16_t ojp_ntohs(uint16_t val){\n");
+  fprintf(fh, "\tuint8_t bytes[2] = { 0 };\n");
+  fprintf(fh, "\tmemcpy(&bytes, &val, 2);\n");
+  fprintf(fh, "\treturn ((uint16_t) bytes[1] << 0) | ((uint16_t) bytes[0] << 8);\n");
   fprintf(fh, "}\n");
   fprintf(fh, "\n\n\n");
-  fprintf(fh, "long ojp_ntohl(long val){\n");
-  fprintf(fh, "\treturn ntohl(val);\n");
+  fprintf(fh, "uint32_t ojp_ntohl(uint32_t val){\n");
+  fprintf(fh, "\tuint8_t bytes[4] = { 0 };\n");
+  fprintf(fh, "\tmemcpy(&bytes, &val, 4);\n");
+  fprintf(fh, "\treturn ((uint32_t) bytes[3] << 0) | ((uint32_t) bytes[2] << 8) | ((uint32_t) bytes[1] << 16) | ((uint32_t) bytes[0] << 24);\n");
   fprintf(fh, "}\n");
   fprintf(fh, "\n\n\n");
-  fprintf(fh, "short ojp_htons(short val){\n");
-  fprintf(fh, "\treturn htons(val);\n");
+  fprintf(fh, "uint16_t ojp_htons(uint16_t val){\n");
+  fprintf(fh, "\tuint8_t bytes[2] = { 0 };\n");
+  fprintf(fh, "\tmemcpy(&bytes, &val, 2);\n");
+  fprintf(fh, "\treturn ((uint16_t) bytes[1] << 0) | ((uint16_t) bytes[0] << 8);\n");
   fprintf(fh, "}\n");
   fprintf(fh, "\n\n\n");
-  fprintf(fh, "long ojp_htonl(long val){\n");
-  fprintf(fh, "\treturn htonl(val);\n");
+  fprintf(fh, "uint32_t ojp_htonl(uint32_t val){\n");
+  fprintf(fh, "\tuint8_t bytes[4] = { 0 };\n");
+  fprintf(fh, "\tmemcpy(&bytes, &val, 4);\n");
+  fprintf(fh, "\treturn ((uint32_t) bytes[3] << 0) | ((uint32_t) bytes[2] << 8) | ((uint32_t) bytes[1] << 16) | ((uint32_t) bytes[0] << 24);\n");
   fprintf(fh, "}\n");
   fprintf(fh, "\n");
   
@@ -170,6 +178,9 @@ int print_last_struct(char* filename)
   fprintf(fh, "\tuint32_t val32;\n");
   fprintf(fh, "\tuint16_t val16;\n");
   fprintf(fh, "\tuint8_t val8;\n\n");
+  fprintf(fh, "\tif(ins == NULL || buffer == NULL){\n");
+  fprintf(fh, "\t\tprintf(\"WARNIGN: Passed NULL pointer to %s_ser\\n\");\n", struct_names[lastii]);
+  fprintf(fh, "\t}\n\n");
   int member_ii;
   member_ii = 0;
   while(members[member_ii].name[0] != 0 && member_ii < OJPMAX)
@@ -312,6 +323,11 @@ int print_last_struct(char* filename)
   fprintf(fh, "\tuint32_t val32;\n");
   fprintf(fh, "\tuint16_t val16;\n");
   fprintf(fh, "\tuint8_t val8;\n\n");
+
+  fprintf(fh, "\tif(ins == NULL || buffer == NULL){\n");
+  fprintf(fh, "\t\tprintf(\"WARNIGN: Passed NULL pointer to %s_des\\n\");\n", struct_names[lastii]);
+  fprintf(fh, "\t}\n\n");
+
   fprintf(fh, "\tmemset(ins, 0, sizeof(*ins));\n");
   
   member_ii = 0;
