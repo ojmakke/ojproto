@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "ojprotos.h"
 
 char struct_names[OJPMAX][OJPLEN];	// possible structures in a file, each 50 chars long
@@ -126,6 +127,7 @@ int prepare_file(char* filename, char* to_include)
   FILE* fh;
   fh = fopen(filename, "w");
   fprintf(fh, "#include <stdio.h>\n");
+  fprintf(fh, "#include <stdlib.h>\n");
   fprintf(fh, "#include <stdint.h>\n");
   fprintf(fh, "#include <arpa/inet.h>\n");
   fprintf(fh, "#include <string.h>\n");
@@ -160,15 +162,25 @@ int prepare_file(char* filename, char* to_include)
   return 0;
 }
 
-int print_last_struct(char* filename)
+uint32_t get_next_field_size(int member_ii)
 {
-  FILE* fh;
-  int lastii;
-  
-  fh = fopen(filename, "a");
-  fprintf(fh, "\n\n");
-  
-  lastii = get_last_struct();
+
+  int fieldSize = 0;
+  uint32_t bytes;
+  int whole;
+  while(member_ii < OJPMAX && members[member_ii].isBitField == OJPTRUE)
+    {
+      fieldSize += members[member_ii].fieldSize;
+      ++member_ii;
+    }
+  whole = fieldSize / 8; /* Field is this or more bytes */
+  bytes = (whole * 8 < fieldSize) ? (whole+1) : whole; /* bytes is how many bytes the field is. */
+  return bytes;
+}
+
+void print_struct_ser(FILE* fh, int lastii)
+{
+  int member_ii;
   fprintf(fh, "size_t %s_ser(struct %s *ins, char* buffer){\n",
 	  struct_names[lastii], struct_names[lastii]);
   fprintf(fh, "\tint offset = 0;\n");
@@ -177,20 +189,21 @@ int print_last_struct(char* filename)
   fprintf(fh, "\tuint8_t *ptr8;\n");
   fprintf(fh, "\tuint32_t val32;\n");
   fprintf(fh, "\tuint16_t val16;\n");
+  fprintf(fh, "\tuint8_t *toRShift\n");
   fprintf(fh, "\tuint8_t val8;\n\n");
   fprintf(fh, "\tif(ins == NULL || buffer == NULL){\n");
   fprintf(fh, "\t\tprintf(\"WARNIGN: Passed NULL pointer to %s_ser\\n\");\n", struct_names[lastii]);
   fprintf(fh, "\t}\n\n");
-  int member_ii;
+
   member_ii = 0;
-  while(members[member_ii].name[0] != 0 && member_ii < OJPMAX)
+  while(member_ii < OJPMAX && members[member_ii].name[0] != 0)
     {
       int jj;
       jj = 0;
-      if(members[member_ii].isStruct == OJPFALSE)
+      if(members[member_ii].isStruct == OJPFALSE && members[member_ii].isBitField == OJPFALSE)
 	{   
 	  if(   members[member_ii].eMemberType == MT_UINT32
-	     || members[member_ii].eMemberType == MT_INT32)
+		|| members[member_ii].eMemberType == MT_INT32)
 	    {
 	      if(members[member_ii].isArray == OJPTRUE)
 		{
@@ -200,7 +213,7 @@ int print_last_struct(char* filename)
 		{
 		  fprintf(fh, "\tptr32 = &(ins->%s);\n", members[member_ii].name);
 		}
-
+	      
 	      while(jj <= members[member_ii].arraySize)
 		{
 		  fprintf(fh, "\tval32 = (uint32_t) ojp_ntohl(ptr32[%d]);\n", jj);
@@ -209,8 +222,9 @@ int print_last_struct(char* filename)
 		  ++jj;
 		}
 	    }
-	  else if(    members[member_ii].eMemberType == MT_UINT16
-		   || members[member_ii].eMemberType == MT_INT16 )
+	  else if( members[member_ii].eMemberType == MT_UINT16
+		   || members[member_ii].eMemberType == MT_INT16)
+			
 	    {
 	      if(members[member_ii].isArray == OJPTRUE)
 		{
@@ -228,7 +242,7 @@ int print_last_struct(char* filename)
 		  ++jj;
 		}
 	    }
-	  else
+	  else if(members[member_ii].isBitField == OJPFALSE)
 	    {
 	      if(members[member_ii].isArray == OJPTRUE)
 		{
@@ -247,7 +261,8 @@ int print_last_struct(char* filename)
 		}
 	    }
 	}
-      else
+      /* Struct */
+      else if(members[member_ii].isBitField == OJPFALSE)
 	{
 	  fprintf(fh, "\tstruct %s *%s_ptr;\n", members[member_ii].structName, members[member_ii].name);
 	  if(members[member_ii].isArray == OJPTRUE)
@@ -270,28 +285,55 @@ int print_last_struct(char* filename)
 		      members[member_ii].structName, members[member_ii].name, jj);
 	      ++jj;
 	    }
+	  
+	}
 
+      /* bitField = true is the remaining else. This cannot be array */
+      else
+	{
+	  uint32_t bytes = get_next_field_size(member_ii);
+	  int fieldSize;
+	  fprintf(fh, "\t/* Note that the right side is always aligned at a byte. */\n");
+	  fprintf(fh, "\tmalloc(toRShift, 0, %d);\n", bytes);
+	  
+	  while(member_ii < OJPMAX && members[member_ii].isBitField == OJPTRUE)
+	    {
+	      fieldSize = members[member_ii].fieldSize;
+	      fprintf(fh, "\t*ptr32 = (ins->%s);\n", members[member_ii].name);
+	      fprintf(fh, "\t{\n\t\tuint32_t mask = 0xFFFFFFFF;\n");
+	      fprintf(fh, "\t\tmask = ~(mask<<fieldSize);\n");
+	      fprintf(fh, "\t\t*ptr32 = *ptr32 & mask;\n\t}\n");
+	      
+	      ++member_ii;
+	    }	  
+	  --member_ii; /* Undo last increment in loop */
+
+	  fprintf(fh, "\tfree(toRShift);\n");
 	}
       member_ii++;
     }
   fprintf(fh, "\treturn offset;\n");
   fprintf(fh, "}\n\n");
+}
 
+void print_struct_size(FILE* fh, int lastii)
+{
+  int member_ii;
   /* now print the function which returns the size required from the buffer */
   fprintf(fh, "size_t %s_size(){\n", struct_names[lastii]);
   fprintf(fh, "\tsize_t offset;\n");
   fprintf(fh, "\tstruct %s dummy;\n", struct_names[lastii]);
   fprintf(fh, "\toffset = 0;\n\n");
   member_ii = 0;
-  while(members[member_ii].name[0] != 0 && member_ii < OJPMAX)
+  while(member_ii < OJPMAX && members[member_ii].name[0] != 0)
     {
       int jj;
       jj = 0;
-      if(members[member_ii].isStruct == OJPFALSE)
+      if(members[member_ii].isStruct == OJPFALSE && members[member_ii].isBitField == OJPFALSE)
 	{
 	  fprintf(fh, "\toffset += sizeof(dummy.%s);\n", members[member_ii].name);
 	}
-      else
+      else if(members[member_ii].isBitField == OJPFALSE)
 	{
 	  if(members[member_ii].isArray == OJPFALSE)
 	    {
@@ -304,17 +346,27 @@ int print_last_struct(char* filename)
 		      , members[member_ii].arraySize);
 	    }
 	}
-      member_ii++;
+      /* bitFields. Find all consecutive bitFields, since they will be packed. */
+      else
+	{
+	  uint32_t bytes;
+	  bytes = get_next_field_size(member_ii);
+	  /* For array shift, we need bytes + 1 array at most */
+	  // uint8_t *toShift = malloc(bytes+1);
+	  //memset(toShift, 0, bytes+1);
+	  fprintf(fh, "\toffset += %d;\n", bytes);
+	}
+      ++member_ii;
     }
   fprintf(fh, "\treturn offset;\n");
   fprintf(fh, "}\n\n");
+ 
+}
 
-  /* Now print the function for deserialize. It returns the offset of unused buffer. Tis can be otuside bound */
-  /*****
-   *****
-   ****
-   */
-    fprintf(fh, "size_t %s_des(struct %s *ins, char* buffer){\n",
+void print_struct_des(FILE* fh, int lastii)
+{
+  int member_ii;
+      fprintf(fh, "size_t %s_des(struct %s *ins, char* buffer){\n",
 	  struct_names[lastii], struct_names[lastii]);
   fprintf(fh, "\tint offset = 0;\n");
   fprintf(fh, "\tuint32_t *ptr32;\n");
@@ -331,11 +383,11 @@ int print_last_struct(char* filename)
   fprintf(fh, "\tmemset(ins, 0, sizeof(*ins));\n");
   
   member_ii = 0;
-  while(members[member_ii].name[0] != 0 && member_ii < OJPMAX)
+  while(member_ii < OJPMAX && members[member_ii].name[0] != 0)
     {
       int jj;
       jj = 0;
-      if(members[member_ii].isStruct == OJPFALSE)
+      if(members[member_ii].isStruct == OJPFALSE && members[member_ii].isBitField == OJPFALSE)
 	{   
 	  if(   members[member_ii].eMemberType == MT_UINT32
 	     || members[member_ii].eMemberType == MT_INT32)
@@ -400,6 +452,12 @@ int print_last_struct(char* filename)
 		}
 	    }
 	}
+      // Bit field. If it is struct, then C Compiler will complain later.
+      else if(members[member_ii].isBitField == OJPTRUE)
+	{
+	  
+	}
+      // Struct
       else
 	{
 	  fprintf(fh, "\tstruct %s *%s_ptr;\n", members[member_ii].structName, members[member_ii].name);
@@ -429,6 +487,28 @@ int print_last_struct(char* filename)
     }
   fprintf(fh, "\treturn offset;\n");
   fprintf(fh, "}\n\n");
+
+}
+
+int print_last_struct(char* filename)
+{
+  FILE* fh;
+  int lastii;
+  int member_ii;
+  
+  fh = fopen(filename, "a");
+  fprintf(fh, "\n\n");
+  
+  lastii = get_last_struct();
+  print_struct_ser(fh, lastii);
+  print_struct_size(fh, lastii);
+  print_struct_des(fh, lastii);
+ 
+  /* Now print the function for deserialize. It returns the offset of unused buffer. Tis can be otuside bound */
+  /*****
+   *****
+   ****
+   */
   fclose(fh);
   return 0;
 }

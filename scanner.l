@@ -18,7 +18,8 @@ VERSION			return VERSION;
 "\}"			return RBRACE;
 "\[" 			return LBRKT;
 "\]"			return RBRKT;
-;			return SEMI;
+;   			return SEMI;
+:               return DOTCOLON; 
 struct 			return STRUCT;
 uint32_t		{ yylval.str = strdup(yytext); return TYPE; }
 int32_t			{ yylval.str = strdup(yytext); return TYPE; }

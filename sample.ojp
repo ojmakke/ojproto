@@ -1,6 +1,7 @@
 // VERSION 1
 
 // OJPROTO
+
 struct Struct1
 {
   uint32_t x1;
@@ -28,5 +29,19 @@ struct Struct3
   uint32_t a[2];
   struct Struct1 b;
   struct Struct2 c[5];
+};
+
+struct Struct4
+{
+  uint32_t val1 : 3;
+  uint32_t val2 : 4;
+  uint32_t val3 : 1;
+};
+
+struct Struct5
+{
+  uint32_t val1 : 3;
+  uint32_t val2 : 4;
+  uint32_t val3 : 2;
 };
 // OJPROTOEND

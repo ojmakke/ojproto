@@ -31,6 +31,8 @@ struct SMemberTypes
   uint32_t eMemberType;
   int isArray;
   int isStruct;
+  int isBitField;
+  uint32_t fieldSize;
   uint32_t arraySize;  
 };
 

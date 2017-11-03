@@ -34,6 +34,7 @@ char *to_include;
 %token PROTOBEGIN
 %token PROTOEND
 %token SEMI
+%token DOTCOLON
 
 %type <int4> array
 %type <str> structname
@@ -69,11 +70,13 @@ member: TYPE STRING array SEMI
 	    if(can_add_primitive_member($2) == OJPTRUE)
 	    {
 		struct SMemberTypes SType;
+		memset(&SType, 0, sizeof(SType));
 		strcpy(SType.name, $2);
 		SType.isStruct = OJPFALSE;
 		SType.isArray = OJPTRUE;
 		SType.arraySize = $3;
 		SType.eMemberType = type_to_str($1);
+		SType.isBitField = OJPFALSE;
 		memset(&SType.structName, 0, OJPLEN);
 		add_member(&SType); 
 	    }
@@ -87,11 +90,13 @@ member: TYPE STRING array SEMI
 	    if(can_add_primitive_member($2) == OJPTRUE)
 	    {
 		struct SMemberTypes SType;
+		memset(&SType, 0, sizeof(SType));
 		strcpy(SType.name, $2);
 		SType.isStruct = OJPFALSE;
 		SType.isArray = OJPFALSE;
 		SType.arraySize = 0;
 		SType.eMemberType = type_to_str($1);
+        SType.isBitField = OJPFALSE;
 		memset(&SType.structName, 0, OJPLEN);
 		add_member(&SType); 
 	    }
@@ -100,6 +105,28 @@ member: TYPE STRING array SEMI
 		printf("Cannot add member %s %s\n", $1, $2);
 	    }
 	}
+	| TYPE STRING DOTCOLON UINT32 SEMI
+	{
+        if(can_add_primitive_member($2) == OJPTRUE)
+        {
+            struct SMemberTypes SType;
+            memset(&SType, 0, sizeof(SType));
+            strcpy(SType.name, $2);
+            SType.isStruct = OJPFALSE;
+            SType.isArray = OJPFALSE;
+            SType.arraySize = 0;
+            SType.eMemberType = type_to_str($1);
+            printf("Found bit field: %s, %d\n", $2, $4);
+            SType.isBitField = OJPTRUE;
+            SType.fieldSize = $4;
+            memset(&SType.structName, 0, OJPLEN);
+            add_member(&SType);
+        }
+	}
+	| TYPE DOTCOLON '0'
+	{
+        // Ignored. This is just to align next byte. It doesn't do anything for the serialization/deserialization
+	}
 	| structname STRING array SEMI
 	{
 	    strcpy(_structType, $1);
@@ -107,11 +134,13 @@ member: TYPE STRING array SEMI
 	    if(can_add_struct_member($1) == OJPTRUE && can_add_primitive_member($2) == OJPTRUE)
 	    {
 		struct SMemberTypes SType;
+		memset(&SType, 0, sizeof(SType));
 		strcpy(SType.name, $2);
 		strcpy(SType.structName, $1);
 		SType.isStruct = OJPTRUE;
 		SType.isArray = OJPTRUE;
 		SType.arraySize = $3;
+		SType.isBitField = OJPFALSE;
 		SType.eMemberType = type_to_str($1);
 		add_member(&SType);
 	    }
@@ -126,11 +155,13 @@ member: TYPE STRING array SEMI
 	    if(can_add_struct_member($1) == OJPTRUE && can_add_primitive_member($2) == OJPTRUE)
 	    {
 		struct SMemberTypes SType;
+		memset(&SType, 0, sizeof(SType));
 		strcpy(SType.structName, $1);
 		strcpy(SType.name, $2);
 		SType.isStruct = OJPTRUE;
 		SType.isArray = OJPFALSE;
 		SType.arraySize = 0;
+		SType.isBitField = OJPFALSE;
 		SType.eMemberType = type_to_str($1);
 		add_member(&SType);
 	    }
