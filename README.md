@@ -75,10 +75,23 @@ Then there will be:
  So, given a series of bytes, we can call serializer or deserializer multiple types to serialize, deserialize multiple structures. 
  
  ## Regarding Endianess
- The functions: ````ntohs, ntohl, htons, htonl```` are used in ````ojp_ntohs, ojp_ntohl, ojp_htons, ojp_htonl ````. You can reimplement these for systems such as windows. Future plans include generating these functions automatically.
+ The functions: ```` ojp_ntohs, ojp_ntohl, ojp_htons, ojp_htonl ```` are used instead of ```` ntohs, ntohl, htons, htonl ````.   They may not be as efficient, but they are simple and readable.
+ 
+ Data is stored as Network Order (Big Endian). For example, a ```` uint32_t x = 1; ```` is stored in the buffer as:
+ ````
+ buffer[0] = 0;
+ buffer[1] = 0;
+ buffer[2] = 0;
+ buffer[3] = 1;
+ ````
+ 
+ Regarding the bitfields, they are stored so that the left most bit is the most significant, and the rightmost bit is the least significant. 
+ 
+  
  
  ## Regarding supported types:
  1. ````uint32_t, int32_t, uint16_t, int16_t, uint8_t, int8_t, char```` and arrays of these types.
  2. Structure members and arrays of them, if they are already defined, which works for valid C code
+ 3. Bit fields.
  
  Enjoy!
