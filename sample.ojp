@@ -33,15 +33,17 @@ struct Struct3
 
 struct Struct4
 {
-  uint32_t val1 : 3;
-  uint32_t val2 : 4;
-  uint32_t val3 : 1;
+  uint32_t b1;
+  uint32_t val1 : 4;
+  uint32_t val2 : 11;
+  uint32_t val3 : 5;
+  uint32_t val4 : 13;
+  uint32_t e1;
+  uint32_t val5 : 1;
+  uint32_t val6 : 31;
+  uint32_t val7 : 32;
+  uint32_t val8 : 29;
+  uint32_t e2;
 };
 
-struct Struct5
-{
-  uint32_t val1 : 3;
-  uint32_t val2 : 4;
-  uint32_t val3 : 2;
-};
 // OJPROTOEND

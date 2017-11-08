@@ -129,33 +129,16 @@ int prepare_file(char* filename, char* to_include)
   fprintf(fh, "#include <stdio.h>\n");
   fprintf(fh, "#include <stdlib.h>\n");
   fprintf(fh, "#include <stdint.h>\n");
-  fprintf(fh, "#include <arpa/inet.h>\n");
   fprintf(fh, "#include <string.h>\n");
   fprintf(fh, "#include \"%s\"\n", to_include);
   fprintf(fh, "\n\n");
-  fprintf(fh, "uint16_t ojp_ntohs(uint16_t val){\n");
-  fprintf(fh, "\tuint8_t bytes[2] = { 0 };\n");
-  fprintf(fh, "\tmemcpy(&bytes, &val, 2);\n");
-  fprintf(fh, "\treturn ((uint16_t) bytes[1] << 0) | ((uint16_t) bytes[0] << 8);\n");
-  fprintf(fh, "}\n");
-  fprintf(fh, "\n\n\n");
-  fprintf(fh, "uint32_t ojp_ntohl(uint32_t val){\n");
-  fprintf(fh, "\tuint8_t bytes[4] = { 0 };\n");
-  fprintf(fh, "\tmemcpy(&bytes, &val, 4);\n");
-  fprintf(fh, "\treturn ((uint32_t) bytes[3] << 0) | ((uint32_t) bytes[2] << 8) | ((uint32_t) bytes[1] << 16) | ((uint32_t) bytes[0] << 24);\n");
-  fprintf(fh, "}\n");
-  fprintf(fh, "\n\n\n");
-  fprintf(fh, "uint16_t ojp_htons(uint16_t val){\n");
-  fprintf(fh, "\tuint8_t bytes[2] = { 0 };\n");
-  fprintf(fh, "\tmemcpy(&bytes, &val, 2);\n");
-  fprintf(fh, "\treturn ((uint16_t) bytes[1] << 0) | ((uint16_t) bytes[0] << 8);\n");
-  fprintf(fh, "}\n");
-  fprintf(fh, "\n\n\n");
-  fprintf(fh, "uint32_t ojp_htonl(uint32_t val){\n");
-  fprintf(fh, "\tuint8_t bytes[4] = { 0 };\n");
-  fprintf(fh, "\tmemcpy(&bytes, &val, 4);\n");
-  fprintf(fh, "\treturn ((uint32_t) bytes[3] << 0) | ((uint32_t) bytes[2] << 8) | ((uint32_t) bytes[1] << 16) | ((uint32_t) bytes[0] << 24);\n");
-  fprintf(fh, "}\n");
+  fprintf(fh, "extern uint32_t ojp_ntohl(uint32_t val);\n");
+  fprintf(fh, "extern uint16_t ojp_htons(uint16_t val);\n");
+  fprintf(fh, "extern uint32_t ojp_htonl(uint32_t val);\n");
+  fprintf(fh, "extern uint8_t get_local_offset(uint32_t bitOffset);\n");
+  fprintf(fh, "extern uint32_t insert_l_be_shifted(uint8_t * bufferOut, uint32_t bitOffset, uint32_t bitSize, uint32_t val);\n");
+  fprintf(fh, "extern uint32_t extract_l_shifted(uint8_t *buffer, uint32_t bitOffset, int bitSize);\n");
+  fprintf(fh, "\n");
   fprintf(fh, "\n");
   
   fclose(fh);
@@ -181,7 +164,7 @@ uint32_t get_next_field_size(int member_ii)
 void print_struct_ser(FILE* fh, int lastii)
 {
   int member_ii;
-  fprintf(fh, "size_t %s_ser(struct %s *ins, char* buffer){\n",
+  fprintf(fh, "size_t %s_ser(struct %s *ins, uint8_t* buffer){\n",
 	  struct_names[lastii], struct_names[lastii]);
   fprintf(fh, "\tint offset = 0;\n");
   fprintf(fh, "\tuint32_t *ptr32;\n");
@@ -189,7 +172,7 @@ void print_struct_ser(FILE* fh, int lastii)
   fprintf(fh, "\tuint8_t *ptr8;\n");
   fprintf(fh, "\tuint32_t val32;\n");
   fprintf(fh, "\tuint16_t val16;\n");
-  fprintf(fh, "\tuint8_t *toRShift\n");
+  fprintf(fh, "\tuint32_t bitOffset;\n");
   fprintf(fh, "\tuint8_t val8;\n\n");
   fprintf(fh, "\tif(ins == NULL || buffer == NULL){\n");
   fprintf(fh, "\t\tprintf(\"WARNIGN: Passed NULL pointer to %s_ser\\n\");\n", struct_names[lastii]);
@@ -293,22 +276,24 @@ void print_struct_ser(FILE* fh, int lastii)
 	{
 	  uint32_t bytes = get_next_field_size(member_ii);
 	  int fieldSize;
-	  fprintf(fh, "\t/* Note that the right side is always aligned at a byte. */\n");
-	  fprintf(fh, "\tmalloc(toRShift, 0, %d);\n", bytes);
+	  fprintf(fh, "\t/* Note that the leftmost bit (MSB) is always aligned at a byte. */\n");
+	  fprintf(fh, "\tbitOffset = 0;\n");
 	  
 	  while(member_ii < OJPMAX && members[member_ii].isBitField == OJPTRUE)
 	    {
 	      fieldSize = members[member_ii].fieldSize;
-	      fprintf(fh, "\t*ptr32 = (ins->%s);\n", members[member_ii].name);
-	      fprintf(fh, "\t{\n\t\tuint32_t mask = 0xFFFFFFFF;\n");
-	      fprintf(fh, "\t\tmask = ~(mask<<fieldSize);\n");
-	      fprintf(fh, "\t\t*ptr32 = *ptr32 & mask;\n\t}\n");
-	      
+	      if(fieldSize > 32)
+		{
+		  printf("Warning: Found fieldSize > 32: %s\n", members[member_ii].name);
+		}
+	      fprintf(fh, "\tbitOffset = insert_l_be_shifted(&buffer[offset], bitOffset, %d, ins->%s);\n", fieldSize, members[member_ii].name);	      
 	      ++member_ii;
 	    }	  
 	  --member_ii; /* Undo last increment in loop */
+	  /* Move offset to the next available byte */
+	  fprintf(fh, "\toffset += (bitOffset >> 3) + 1;\n");
+	  fprintf(fh, "\tbitOffset = 0;\n\n");
 
-	  fprintf(fh, "\tfree(toRShift);\n");
 	}
       member_ii++;
     }
@@ -366,9 +351,10 @@ void print_struct_size(FILE* fh, int lastii)
 void print_struct_des(FILE* fh, int lastii)
 {
   int member_ii;
-      fprintf(fh, "size_t %s_des(struct %s *ins, char* buffer){\n",
+      fprintf(fh, "size_t %s_des(struct %s *ins, uint8_t* buffer){\n",
 	  struct_names[lastii], struct_names[lastii]);
-  fprintf(fh, "\tint offset = 0;\n");
+  fprintf(fh, "\tuint32_t offset = 0;\n");
+  fprintf(fh, "\tuint32_t bitOffset;\n");
   fprintf(fh, "\tuint32_t *ptr32;\n");
   fprintf(fh, "\tuint16_t *ptr16;\n");
   fprintf(fh, "\tuint8_t *ptr8;\n");
@@ -455,6 +441,18 @@ void print_struct_des(FILE* fh, int lastii)
       // Bit field. If it is struct, then C Compiler will complain later.
       else if(members[member_ii].isBitField == OJPTRUE)
 	{
+	  /* Apply all consecutive bit fields. Hence another loop */
+	  fprintf(fh, "\n\tbitOffset = 0;\n");
+	  while(member_ii < OJPMAX && members[member_ii].name[0] != 0 && members[member_ii].isBitField == OJPTRUE)
+	    {
+	      fprintf(fh, "\tins->%s = extract_l_shifted(&buffer[offset], bitOffset, %d);\n", members[member_ii].name, members[member_ii].fieldSize);
+	      fprintf(fh, "\tbitOffset += %d;\n", members[member_ii].fieldSize);
+	      ++member_ii;
+	    }
+	  --member_ii; /* Undo last one in loop */
+	  /* Move offset to the next byte */
+	  fprintf(fh, "\toffset += (bitOffset >> 3) + 1;\n");
+	  fprintf(fh, "\t bitOffset = 0;\n\n");
 	  
 	}
       // Struct
