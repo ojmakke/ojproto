@@ -135,6 +135,7 @@ int prepare_file(char* filename, char* to_include)
   fprintf(fh, "extern uint32_t ojp_ntohl(uint32_t val);\n");
   fprintf(fh, "extern uint16_t ojp_htons(uint16_t val);\n");
   fprintf(fh, "extern uint32_t ojp_htonl(uint32_t val);\n");
+  fprintf(fh, "extern uint16_t ojp_htons(uint16_t val);\n");
   fprintf(fh, "extern uint8_t get_local_offset(uint32_t bitOffset);\n");
   fprintf(fh, "extern uint32_t insert_l_be_shifted(uint8_t * bufferOut, uint32_t bitOffset, uint32_t bitSize, uint32_t val);\n");
   fprintf(fh, "extern uint32_t extract_l_shifted(uint8_t *buffer, uint32_t bitOffset, int bitSize);\n");
@@ -227,20 +228,15 @@ void print_struct_ser(FILE* fh, int lastii)
 	    }
 	  else if(members[member_ii].isBitField == OJPFALSE)
 	    {
+	      /* For chars and uint8s, a simple copy will do */
 	      if(members[member_ii].isArray == OJPTRUE)
 		{
-		  fprintf(fh, "\tptr8 = &(ins->%s[0]);\n", members[member_ii].name);
+		  fprintf(fh, "\tmemcpy(&buffer[offset], &(ins->%s[0]), %d);\n", members[member_ii].name, members[member_ii].arraySize);
+		  fprintf(fh, "\toffset += %d;\n", members[member_ii].arraySize);
 		}
 	      else
 		{
-		  fprintf(fh, "\tptr8 = &(ins->%s);\n", members[member_ii].name);
-		}
-	      while(jj <= members[member_ii].arraySize)
-		{
-		  fprintf(fh, "\tval8 = ptr8[%d];\n", jj);
-		  fprintf(fh, "\tmemcpy(&buffer[offset], &val8, sizeof(val8));\n");
-		  fprintf(fh, "\toffset += sizeof(val8);\n\n");
-		  ++jj;
+		  fprintf(fh, "\tbuffer[offset] = ins->%s;\n", members[member_ii].name);
 		}
 	    }
 	}
@@ -411,33 +407,25 @@ void print_struct_des(FILE* fh, int lastii)
 		    {
 		      fprintf(fh, "\tptr16 = &(ins->%s);\n", members[member_ii].name);
 		    }
-		  /* ptr32 now points to either the variable, or the offset to where to copy data */
+		  /* ptr16 now points to either the variable, or the offset to where to copy data */
 		  fprintf(fh, "\tmemcpy(ptr16, &val16, sizeof(val16));\n");
 		  fprintf(fh, "\toffset += sizeof(val16);\n\n");
 		  ++jj;
 		}
 	    }
+	  else if(members[member_ii].isArray == OJPTRUE)
+	    {
+	      /* For uint8_t or chars, we can simply do memcpy instead of copying 1 by 1. No endianess */
+	      fprintf(fh, "\tmemcpy(&(ins->%s), &buffer[offset], %d);\n", members[member_ii].name, members[member_ii].arraySize);
+	      fprintf(fh, "\toffset += %d;\n", members[member_ii].arraySize);
+	    }
 	  else
 	    {
-	      while(jj <= members[member_ii].arraySize)
-		{
-		  fprintf(fh, "\tptr8 = &buffer[offset];\n");
-		  fprintf(fh, "\tval8 = *ptr8;\n");
-		  if(members[member_ii].isArray == OJPTRUE)
-		    {
-		      fprintf(fh, "\tptr8 = &(ins->%s[%d]);\n", members[member_ii].name, jj);
-		    }
-		  else
-		    {
-		      fprintf(fh, "\tptr8 = &(ins->%s);\n", members[member_ii].name);
-		    }
-		  /* ptr32 now points to either the variable, or the offset to where to copy data */
-		  fprintf(fh, "\tmemcpy(ptr8, &val8, sizeof(val8));\n");
-		  fprintf(fh, "\toffset += sizeof(val8);\n\n");
-		  ++jj;
-		}
+	      fprintf(fh, "\tins->%s = buffer[offset];\n", members[member_ii].name);
+	      fprintf(fh, "\toffset += sizeof(val8);\n");
 	    }
 	}
+    
       // Bit field. If it is struct, then C Compiler will complain later.
       else if(members[member_ii].isBitField == OJPTRUE)
 	{

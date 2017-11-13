@@ -44,11 +44,10 @@ char *to_include;
 
 %%
 
-prog:	version PROTOBEGIN structs PROTOEND
+prog:	ojprotobegin structs PROTOEND
 
-version: VERSION UINT32
+ojprotobegin: PROTOBEGIN
 	 {
-	    ojproto_version = (uint32_t) $2;
 	    prepare_file(output_file, to_include);
 	 }
 

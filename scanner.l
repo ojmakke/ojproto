@@ -4,33 +4,34 @@
 #include <stdint.h>
 #include "grammer.tab.h"
 
+int parse = 0;
 %}
 
 %option yylineno
 
 %%
-VERSION			return VERSION;
-[0-9]+			{ 
+[0-9]+			{   if(parse == 1){
 			    yylval.int4 = (uint32_t) atoi(yytext); 
 			    return UINT32; 
-			}
-"\{" 			return LBRACE;
-"\}"			return RBRACE;
-"\[" 			return LBRKT;
-"\]"			return RBRKT;
-;   			return SEMI;
-:               return DOTCOLON; 
-struct 			return STRUCT;
-uint32_t		{ yylval.str = strdup(yytext); return TYPE; }
-int32_t			{ yylval.str = strdup(yytext); return TYPE; }
-uint16_t		{ yylval.str = strdup(yytext); return TYPE; }
-int16_t			{ yylval.str = strdup(yytext); return TYPE; }
-uint8_t			{ yylval.str = strdup(yytext); return TYPE; }
-int8_t			{ yylval.str = strdup(yytext); return TYPE; }
-char			{ yylval.str = strdup(yytext); return TYPE; }
-OJPROTO			return PROTOBEGIN;
-OJPROTOEND		return PROTOEND;
-[a-zA-Z"][a-zA-Z0-9_]* { yylval.str = strdup(yytext); return STRING; }
+			}}
+"\{" 			{ if(parse == 1) return LBRACE; }
+"\}"			{ if(parse == 1) return RBRACE; }
+"\[" 			{ if(parse == 1) return LBRKT; }
+"\]"			{ if (parse == 1) return RBRKT; }
+;   			{ if(parse == 1) return SEMI; }
+:                       { if(parse == 1) return DOTCOLON; }
+struct 			{ if(parse == 1) return STRUCT; }
+uint32_t		{ if(parse == 1) { yylval.str = strdup(yytext); return TYPE; }}
+int32_t			{ if(parse == 1) { yylval.str = strdup(yytext); return TYPE; }}
+uint16_t		{ if(parse == 1) { yylval.str = strdup(yytext); return TYPE; }}
+int16_t			{ if(parse == 1) { yylval.str = strdup(yytext); return TYPE; }}
+uint8_t			{ if(parse == 1) { yylval.str = strdup(yytext); return TYPE; }}
+int8_t			{ if(parse == 1) { yylval.str = strdup(yytext); return TYPE; }}
+char			{ if(parse == 1) { yylval.str = strdup(yytext); return TYPE; }}
+"// OJPROTO"			{ parse = 1; return PROTOBEGIN; }
+"// OJPROTOEND"		{ if(parse == 1) parse = 0; return PROTOEND; }
+"//"[^\r\n]*             { /* skip comments */ }
+[a-zA-Z"][a-zA-Z0-9_]* { if(parse == 1) { yylval.str = strdup(yytext); return STRING; }}
 \n
 . 		
 
