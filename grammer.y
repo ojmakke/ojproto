@@ -7,7 +7,6 @@
 #include "grammer.tab.h"
 
 
-uint32_t ojproto_version;
 char _structName[OJPLEN];
 char _structType[OJPLEN];
 char _varName[OJPLEN];
@@ -44,12 +43,18 @@ char *to_include;
 
 %%
 
-prog:	ojprotobegin structs PROTOEND
+prog:	ojprotobegin structs ojprotoend
 
 ojprotobegin: PROTOBEGIN
 	 {
 	    prepare_file(output_file, to_include);
+	    prepare_header();
 	 }
+	 
+ojprotoend: PROTOEND
+    {
+        end_header();
+    }
 
 structs: struct
 	| structs struct
