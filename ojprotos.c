@@ -136,7 +136,7 @@ int prepare_file(char* filename, char* to_include)
   
   fprintf(fh, "\n\n");
   fprintf(fh, "extern uint32_t ojp_ntohl(uint32_t val);\n");
-  fprintf(fh, "extern uint16_t ojp_htons(uint16_t val);\n");
+  fprintf(fh, "extern uint16_t ojp_ntohs(uint16_t val);\n");
   fprintf(fh, "extern uint32_t ojp_htonl(uint32_t val);\n");
   fprintf(fh, "extern uint16_t ojp_htons(uint16_t val);\n");
   fprintf(fh, "extern uint32_t insert_l_be_shifted(uint8_t * bufferOut, uint32_t bitOffset, uint32_t bitSize, uint32_t val);\n");
